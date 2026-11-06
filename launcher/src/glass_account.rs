@@ -13,6 +13,18 @@ use crate::servers_page::Field;
 use account::Player;
 use horizon_theme::glass::{fill, ink, radius};
 
+/// `HORIZON_LAUNCHER_PAGE=account-preview` shows a mock profile in debug builds only.
+pub(super) fn account_preview_enabled() -> bool {
+    account_preview_enabled_for(
+        cfg!(debug_assertions),
+        std::env::var("HORIZON_LAUNCHER_PAGE").ok().as_deref(),
+    )
+}
+
+fn account_preview_enabled_for(debug_build: bool, page: Option<&str>) -> bool {
+    debug_build && page == Some("account-preview")
+}
+
 impl Launcher {
     pub(super) fn glass_account(&mut self, cx: &mut Context<Self>) -> Div {
         let left = self.glass_who_plays(cx);
@@ -251,15 +263,48 @@ impl Launcher {
         .on_click(on_click)
     }
 
+    /// A visual-only profile for screenshots: it never enters `Accounts` or the launch path.
+    fn account_preview_row(&self, t: &Theme) -> Div {
+        slot_row(
+            Some(self.profile_heads.draw(None, 32., self.scale, t)),
+            tr("Preview Player").to_string(),
+            Some(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(2.))
+                    .child(
+                        ui::text(13., FontWeight::NORMAL, 0.65)
+                            .child(tr("Mock profile · preview only")),
+                    )
+                    .child(
+                        ui::text(12., FontWeight::NORMAL, 0.5)
+                            .child(tr("No session or ownership; cannot launch")),
+                    )
+                    .into_any_element(),
+            ),
+            Some(
+                ui::text(12., FontWeight::MEDIUM, 0.55)
+                    .child(tr("Preview only"))
+                    .into_any_element(),
+            ),
+            t,
+        )
+    }
+
     /// The Microsoft card: the accounts signed in here, then adding one (the mockup's card).
     fn glass_microsoft_card(&mut self, cx: &mut Context<Self>) -> Div {
         let t = self.theme;
         let has_accounts = !self.accounts.accounts.is_empty();
-        let (rows, _) = if has_accounts {
+        let preview = account_preview_enabled();
+        let (mut rows, _) = if has_accounts {
             ui::flat_rows(|| self.microsoft_rows(cx))
         } else {
             (div(), 0)
         };
+        if preview {
+            rows = rows.child(self.account_preview_row(&t));
+        }
         let (title, detail, action) = self.sign_in_parts(cx);
         let configured = account::client_id().is_some();
         let idle = self.sign_in_state.is_none()
@@ -323,7 +368,7 @@ impl Launcher {
             .rounded(px(16.))
             .bg(white(0.045))
             .p(px(24.))
-            .when(has_accounts, |d| {
+            .when(has_accounts || preview, |d| {
                 d.child(rows.mx(px(-16.)).mt(px(-16.)).mb(px(16.)))
             })
             .child(microsoft::logo(36.))
@@ -355,5 +400,18 @@ impl Launcher {
                         )),
                 )
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::account_preview_enabled_for;
+
+    #[test]
+    fn account_preview_requires_debug_build_and_exact_page() {
+        assert!(account_preview_enabled_for(true, Some("account-preview")));
+        assert!(!account_preview_enabled_for(false, Some("account-preview")));
+        assert!(!account_preview_enabled_for(true, Some("settings")));
+        assert!(!account_preview_enabled_for(true, None));
     }
 }
