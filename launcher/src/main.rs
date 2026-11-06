@@ -122,8 +122,9 @@ enum Page {
 }
 
 impl Page {
-    /// `HORIZON_LAUNCHER_PAGE=mods` (or `modpacks`, `resourcepacks`, `shaders`, `servers`, `versions`, `notes`,
-    /// `settings`) opens on that page, for screenshots; Home otherwise (`getting-ready`: Home
+    /// `HORIZON_LAUNCHER_PAGE=mods` (or `modpacks`, `resourcepacks`, `shaders`, `servers`, `versions`,
+    /// `notes`, `settings`, `account-preview`) opens on that page, for screenshots; Home otherwise
+    /// (`getting-ready`: Home
     /// preparing, `home::getting_ready_preview`; `sign-in`: the owner gate's sheet with a
     /// made-up code, `owner_page::sign_in_preview`; `new-instance`: Home with the New instance
     /// dialog open on Modded; `edit-instance`: the selected one's Edit dialog; `worlds`, `packs`...: Home on that tab, `HomeTab::from_env`).
@@ -135,6 +136,7 @@ impl Page {
             Ok("shop") if horizon_cosmetics::forced() => Page::Shop,
             Ok("versions") => Page::Versions,
             Ok("notes") => Page::Notes,
+            Ok("account-preview") if glass_account::account_preview_enabled() => Page::Settings,
             Ok("settings") => Page::Settings,
             _ => Page::Play,
         };
